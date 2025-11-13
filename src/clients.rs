@@ -18,10 +18,10 @@ impl StaticKeyClient {
 }
 
 #[derive(Clone, Copy)]
-pub struct ClientID(u8);
+pub struct ClientID(pub u8);
 
 pub struct TmpKeyClient {
-    shared_secrets: Vec<(SharedSecret, ClientID)>,
+    shared_secrets: Vec<(ClientID, SharedSecret)>,
     pub id: ClientID,
 }
 
@@ -39,7 +39,7 @@ impl TmpKeyClient {
         other_id: ClientID,
     ) {
         self.shared_secrets
-            .push((s.diffie_hellman(other_pubkey), other_id));
+            .push((other_id, s.diffie_hellman(other_pubkey)));
     }
 }
 pub fn tmp_client_key_exchange(client: &mut TmpKeyClient, other_client: &mut TmpKeyClient) {
@@ -51,4 +51,14 @@ pub fn tmp_client_key_exchange(client: &mut TmpKeyClient, other_client: &mut Tmp
 
     client.add_shared_secret(secret1, &pubkey2, other_client.id);
     other_client.add_shared_secret(secret2, &pubkey1, client.id);
+}
+
+//this is useless in any practical setting. only using it to benchmark
+#[allow(dead_code)]
+pub fn tmp_client_key_generation() {
+    let secret1 = EphemeralSecret::random_from_rng(OsRng);
+    let _pubkey1 = PublicKey::from(&secret1);
+
+    let secret2 = EphemeralSecret::random_from_rng(OsRng);
+    let _pubkey2 = PublicKey::from(&secret2);
 }
