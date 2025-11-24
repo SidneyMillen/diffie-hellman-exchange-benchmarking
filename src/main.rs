@@ -81,6 +81,10 @@ async fn main() {
 
             for transfer in key_transfers.iter_mut() {
                 transfer.render(Vec2::new(center_x, center_y));
+                //this is for the last part where the mutual secrets move into the center of the circle
+                if process_finished && transfer.progress <= 1.0 {
+                    transfer.progress += key_transfer_speed;
+                }
             }
             if !process_finished {
                 for mut transfer in key_transfers.iter_mut() {
@@ -100,6 +104,8 @@ async fn main() {
 
                         let new_start_client =
                             game_clients.get(new_start_client_idx as usize).unwrap();
+                        let mut new_start_point =
+                            new_start_client.pos;
                         let new_end_client = game_clients.get(new_end_client_idx as usize).unwrap();
                         let mut new_end_point = new_end_client.pos;
 
@@ -111,20 +117,18 @@ async fn main() {
 
                         transfer.update_pubkey(new_pubkey);
 
-                        if !process_finished {
-                            if transfer.remaining_hops == 1 {
-                                new_end_point =
-                                    inner_points.get(new_end_client_idx).unwrap().clone();
-                            }
-
-                            transfer.start_x = new_start_client.pos.x;
-                            transfer.start_y = new_start_client.pos.y;
-
-                            transfer.end_x = new_end_point.x;
-                            transfer.end_y = new_end_point.y;
-
-                            transfer.progress = 0.0;
+                        if process_finished{
+                            new_end_point =
+                                    inner_points.get(new_start_client_idx).unwrap().clone();
                         }
+
+                        transfer.end_x = new_end_point.x;
+                        transfer.end_y = new_end_point.y;
+
+                        transfer.start_x = new_start_point.x;
+                        transfer.start_y = new_start_point.y;
+
+                        transfer.progress = 0.0;
                     }
                 }
             }
