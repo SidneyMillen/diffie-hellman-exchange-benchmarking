@@ -6,8 +6,8 @@ fn n_party_mutual_key_example(n: usize) {
 
     let mut clients: Vec<StaticKeyClient> = vec![];
 
-    for _ in 0..n {
-        clients.push(StaticKeyClient::new())
+    for id in 0..n {
+        clients.push(StaticKeyClient::new(id as u8))
     }
 
     for i in 0..n {
