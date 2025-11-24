@@ -16,9 +16,9 @@ async fn main() {
     'outer: loop {
         let circle_size = 250.0;
 
-        let num_clients: u8 = 10;
+        let num_clients: u8 = 25;
 
-        let mut key_transfer_speed = 0.01;
+        let mut key_transfer_speed = 2.0;
 
         let mut game_clients: Vec<GameClient> = vec![];
 
@@ -78,16 +78,36 @@ async fn main() {
                 );
             }
 
+            if process_finished {
+                let shared_secret = key_transfers.get(0).unwrap().value.to_bytes();
+                let secret_text = &shared_secret
+                    .iter()
+                    .map(|byte| byte.to_string())
+                    .collect::<Vec<_>>()
+                    .join("");
+                let display_text = format!("Shared Secret: {secret_text}");
+                let font_size = 15;
+
+                let text_center = get_text_center(&display_text, None, font_size, 1.0, 0.0);
+                draw_text(
+                    &display_text,
+                    center_x - text_center.x,
+                    center_y - text_center.y,
+                    font_size as f32,
+                    BLACK,
+                );
+            }
+
             for transfer in key_transfers.iter_mut() {
                 transfer.render(Vec2::new(center_x, center_y));
                 //this is for the last part where the mutual secrets move into the center of the circle
                 if process_finished && transfer.progress <= 1.0 {
-                    transfer.progress += key_transfer_speed;
+                    transfer.progress += key_transfer_speed * get_frame_time();
                 }
             }
             if !process_finished {
                 for mut transfer in key_transfers.iter_mut() {
-                    transfer.progress += key_transfer_speed;
+                    transfer.progress += key_transfer_speed * get_frame_time();
 
                     if transfer.progress >= 1.0 {
                         transfer.remaining_hops -= 1;
@@ -103,8 +123,7 @@ async fn main() {
 
                         let new_start_client =
                             game_clients.get(new_start_client_idx as usize).unwrap();
-                        let mut new_start_point =
-                            new_start_client.pos;
+                        let mut new_start_point = new_start_client.pos;
                         let new_end_client = game_clients.get(new_end_client_idx as usize).unwrap();
                         let mut new_end_point = new_end_client.pos;
 
@@ -116,9 +135,8 @@ async fn main() {
 
                         transfer.update_pubkey(new_pubkey);
 
-                        if process_finished{
-                            new_end_point =
-                                    inner_points.get(new_start_client_idx).unwrap().clone();
+                        if process_finished {
+                            new_end_point = inner_points.get(new_start_client_idx).unwrap().clone();
                         }
 
                         transfer.end_x = new_end_point.x;
@@ -137,7 +155,7 @@ async fn main() {
     }
 }
 
-/// returns a vec of x and y values for n points distributed on a circle of a given size, with the first point at the top center of the circle
+/// returns a vec of x and y values for n points distributed on a circle of a given size, with the first point at the bottom center of the circle
 fn get_even_circle_points(circle_size: f32, num_points: isize) -> Vec<Vec2> {
     let angle_increment = 2.0 * PI / num_points as f32;
 
