@@ -1,5 +1,4 @@
 mod clients;
-mod key_exchange;
 use std::{f32::consts::PI, io::Read};
 
 use macroquad::prelude::*;
@@ -9,7 +8,7 @@ use crate::clients::StaticKeyClient;
 
 const KEY_TRANSFER_SHAPE_SIZE: f32 = 15.0;
 
-//just cause this is really the value i need to use in the code anyway
+//might as well precalculate this
 const HALF_KEY_TRANSFER_SHAPE_SIZE: f32 = KEY_TRANSFER_SHAPE_SIZE / 2.0;
 
 #[macroquad::main("Diffie Hellman")]
@@ -58,10 +57,10 @@ async fn main() {
                 break 'inner;
             }
 
-            if is_key_released(KeyCode::Q) {
-                next_frame().await;
-                break 'outer;
-            }
+            // if is_key_released(KeyCode::Q) {
+            //     next_frame().await;
+            //     break 'outer;
+            // }
 
             let center_x = screen_width() / 2.0;
             let center_y = screen_height() / 2.0;
