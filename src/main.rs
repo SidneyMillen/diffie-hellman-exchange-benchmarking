@@ -1,7 +1,13 @@
 mod clients;
 use std::{f32::consts::PI, io::Read};
 
-use macroquad::prelude::*;
+use macroquad::{
+    prelude::*,
+    ui::{
+        hash, root_ui,
+        widgets::{self, Group},
+    },
+};
 use x25519_dalek::PublicKey;
 
 use crate::clients::StaticKeyClient;
@@ -13,12 +19,12 @@ const HALF_KEY_TRANSFER_SHAPE_SIZE: f32 = KEY_TRANSFER_SHAPE_SIZE / 2.0;
 
 #[macroquad::main("Diffie Hellman")]
 async fn main() {
-    'outer: loop {
+    let mut num_clients: u8 = 25;
+
+    let mut key_transfer_speed = 2.0;
+
+    loop {
         let circle_size = 250.0;
-
-        let num_clients: u8 = 25;
-
-        let mut key_transfer_speed = 2.0;
 
         let mut game_clients: Vec<GameClient> = vec![];
 
@@ -31,7 +37,7 @@ async fn main() {
 
         for (id, point) in points.iter().enumerate() {
             let game_client = GameClient::new(*point, id as u8);
-            let next_point = points.get(id + 1).unwrap_or(points.get(0).unwrap());
+            let next_point = points.get(id + 1).unwrap_or(points.first().unwrap());
 
             let key_transfer = PubkeyTransferVisualization {
                 start_x: point.x,
@@ -52,6 +58,30 @@ async fn main() {
         let mut process_finished = false;
 
         'inner: loop {
+            let mut new_num_clients = num_clients as f32;
+            let mut new_transfer_speed = key_transfer_speed;
+            widgets::Window::new(hash!(), vec2(0., 0.), vec2(500.0, 150.0))
+                .label("Settings")
+                .titlebar(true)
+                .ui(&mut *root_ui(), |ui| {
+                    ui.label(None, "Press \"R\" to reset");
+                    ui.slider(hash!(), "[2 - 255]", 2f32..255f32, &mut new_num_clients);
+                    ui.slider(
+                        hash!(),
+                        "[0.1 - 5.0]",
+                        0.1f32..5f32,
+                        &mut new_transfer_speed,
+                    );
+                });
+            if new_num_clients as u8 != num_clients {
+                num_clients = new_num_clients as u8;
+                break 'inner;
+            }
+            if new_transfer_speed != key_transfer_speed {
+                key_transfer_speed = new_transfer_speed;
+                break 'inner;
+            }
+
             if is_key_released(KeyCode::R) {
                 next_frame().await;
                 break 'inner;
@@ -79,13 +109,13 @@ async fn main() {
             }
 
             if process_finished {
-                let shared_secret = key_transfers.get(0).unwrap().value.to_bytes();
+                let shared_secret = key_transfers.first().unwrap().value.to_bytes();
                 let secret_text = &shared_secret
                     .iter()
                     .map(|byte| byte.to_string())
                     .collect::<Vec<_>>()
                     .join("");
-                let display_text = format!("Shared Secret: {secret_text}");
+                let display_text = format!("Shared Secret: {}", secret_text);
                 let font_size = 15;
 
                 let text_center = get_text_center(&display_text, None, font_size, 1.0, 0.0);
@@ -106,7 +136,7 @@ async fn main() {
                 }
             }
             if !process_finished {
-                for mut transfer in key_transfers.iter_mut() {
+                for transfer in key_transfers.iter_mut() {
                     transfer.progress += key_transfer_speed * get_frame_time();
 
                     if transfer.progress >= 1.0 {
@@ -115,15 +145,14 @@ async fn main() {
                             process_finished = true;
                         }
 
-                        let new_start_client_idx: usize = (transfer.original_sender_id as usize
-                            + (num_clients as usize - 1 - transfer.remaining_hops as usize))
-                            % num_clients as usize;
-                        let new_end_client_idx: usize =
-                            (new_start_client_idx + 1) % num_clients as usize;
+                        let new_start_client_idx: u8 = (transfer.original_sender_id as u8
+                            + (num_clients - 1 - transfer.remaining_hops))
+                            % num_clients;
+                        let new_end_client_idx: u8 = (new_start_client_idx + 1) % num_clients;
 
                         let new_start_client =
                             game_clients.get(new_start_client_idx as usize).unwrap();
-                        let mut new_start_point = new_start_client.pos;
+                        let new_start_point = new_start_client.pos;
                         let new_end_client = game_clients.get(new_end_client_idx as usize).unwrap();
                         let mut new_end_point = new_end_client.pos;
 
@@ -136,7 +165,8 @@ async fn main() {
                         transfer.update_pubkey(new_pubkey);
 
                         if process_finished {
-                            new_end_point = inner_points.get(new_start_client_idx).unwrap().clone();
+                            new_end_point =
+                                *inner_points.get(new_start_client_idx as usize).unwrap();
                         }
 
                         transfer.end_x = new_end_point.x;
@@ -169,7 +199,7 @@ fn get_even_circle_points(circle_size: f32, num_points: isize) -> Vec<Vec2> {
         points.push(Vec2::new(x, y))
     }
 
-    return points;
+    points
 }
 
 ///represents one of the participants in the exchange in the game
@@ -194,11 +224,11 @@ fn pubkey_color_representation(key: &PublicKey) -> Color {
     let color_bytes = key_bytes.take(3).into_inner();
 
     //these unwraps are fine cause i took 3 bytes from the pubkey so there will be 3 u8s in the array
-    let r = *color_bytes.get(0).unwrap();
+    let r = *color_bytes.first().unwrap();
     let g = *color_bytes.get(1).unwrap();
     let b = *color_bytes.get(2).unwrap();
 
-    return Color::from_rgba(r, g, b, 255u8);
+    Color::from_rgba(r, g, b, 255u8)
 }
 
 struct PubkeyTransferVisualization {
@@ -219,7 +249,7 @@ impl PubkeyTransferVisualization {
     fn render(&self, center_point: Vec2) {
         //lerping hard or hardly lerping?
         let current_x = self.start_x + self.progress * (self.end_x - self.start_x);
-        let current_y = (1.0 - self.progress) * self.start_y + self.progress * self.end_y;
+        let current_y = self.start_y + self.progress * (self.end_y - self.start_y);
 
         draw_rectangle(
             center_point.x + current_x - HALF_KEY_TRANSFER_SHAPE_SIZE,
