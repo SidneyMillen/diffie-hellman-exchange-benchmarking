@@ -7,3 +7,7 @@ edition = "2024"
 macroquad = "0.4.14"
 rand = "0.8.0"
 x25519-dalek = { version = "2.0.1", features = ["reusable_secrets", "static_secrets"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["custom"] }
+sapp-jsutils = { version = "0.1" }

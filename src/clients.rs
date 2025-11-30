@@ -1,4 +1,6 @@
 use rand::rngs::OsRng;
+use rand::CryptoRng;
+use rand::RngCore;
 use x25519_dalek::*;
 
 pub struct StaticKeyClient {
@@ -23,10 +25,10 @@ impl StaticKeyClient {
 }
 
 #[derive(Clone, Copy)]
-pub struct ClientID(pub u8);
+pub struct ClientID(pub u16);
 
-impl From<u8> for ClientID {
-    fn from(id: u8) -> Self {
+impl From<u16> for ClientID {
+    fn from(id: u16) -> Self {
         ClientID(id)
     }
 }

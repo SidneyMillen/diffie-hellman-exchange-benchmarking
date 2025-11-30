@@ -1,6 +1,10 @@
 mod clients;
-use std::{f32::consts::PI, io::Read};
 
+#[cfg(target_arch = "wasm32")]
+mod wasm_compat;
+
+
+use std::{f32::consts::PI, io::Read};
 use macroquad::{
     prelude::*,
     ui::{
@@ -19,24 +23,27 @@ const HALF_KEY_TRANSFER_SHAPE_SIZE: f32 = KEY_TRANSFER_SHAPE_SIZE / 2.0;
 
 #[macroquad::main("Diffie Hellman")]
 async fn main() {
-    let mut num_clients: u8 = 25;
+    let mut num_clients: u16 = 25;
 
     let mut key_transfer_speed = 2.0;
 
     loop {
+        let mut new_num_clients = num_clients as f32;
+        let mut new_transfer_speed = key_transfer_speed;
+
         let circle_size = 250.0;
 
         let mut game_clients: Vec<GameClient> = vec![];
 
         let mut key_transfers: Vec<PubkeyTransferVisualization> = vec![];
 
-        let points = get_even_circle_points(circle_size, num_clients.into());
+        let points = get_even_circle_points(circle_size, num_clients as isize);
 
-        let inner_points =
-            get_even_circle_points(circle_size - circle_size * 0.20, num_clients.into());
+        let inner_circle_points =
+            get_even_circle_points(circle_size - circle_size * 0.20, num_clients as isize);
 
         for (id, point) in points.iter().enumerate() {
-            let game_client = GameClient::new(*point, id as u8);
+            let game_client = GameClient::new(*point, id as u16);
             let next_point = points.get(id + 1).unwrap_or(points.first().unwrap());
 
             let key_transfer = PubkeyTransferVisualization {
@@ -47,7 +54,7 @@ async fn main() {
                 progress: 0.0,
                 original_sender_id: id as u32,
                 value: game_client.client.pubkey,
-                remaining_hops: points.iter().len() as u8 - 1,
+                remaining_hops: points.iter().len() as u16 - 1,
                 color: pubkey_color_representation(&game_client.client.pubkey),
             };
 
@@ -58,27 +65,25 @@ async fn main() {
         let mut process_finished = false;
 
         'inner: loop {
-            let mut new_num_clients = num_clients as f32;
-            let mut new_transfer_speed = key_transfer_speed;
             widgets::Window::new(hash!(), vec2(0., 0.), vec2(500.0, 150.0))
                 .label("Settings")
                 .titlebar(true)
-                .ui(&mut *root_ui(), |ui| {
+                .ui(&mut root_ui(), |ui| {
                     ui.label(None, "Press \"R\" to reset");
                     ui.slider(hash!(), "[2 - 255]", 2f32..255f32, &mut new_num_clients);
                     ui.slider(
                         hash!(),
-                        "[0.1 - 5.0]",
-                        0.1f32..5f32,
-                        &mut new_transfer_speed,
+                        "[0.1 - 10.0]",
+                        0.1f32..10f32,
+                        &mut key_transfer_speed,
                     );
                 });
-            if new_num_clients as u8 != num_clients {
-                num_clients = new_num_clients as u8;
-                break 'inner;
-            }
-            if new_transfer_speed != key_transfer_speed {
-                key_transfer_speed = new_transfer_speed;
+
+            new_num_clients = new_num_clients.round();
+
+            if new_num_clients as u16 != num_clients && is_mouse_button_released(MouseButton::Left) {
+                //wait to reset game till user is done moving slider
+                num_clients = new_num_clients as u16;
                 break 'inner;
             }
 
@@ -145,10 +150,10 @@ async fn main() {
                             process_finished = true;
                         }
 
-                        let new_start_client_idx: u8 = (transfer.original_sender_id as u8
+                        let new_start_client_idx: u16 = (transfer.original_sender_id as u16
                             + (num_clients - 1 - transfer.remaining_hops))
                             % num_clients;
-                        let new_end_client_idx: u8 = (new_start_client_idx + 1) % num_clients;
+                        let new_end_client_idx: u16 = (new_start_client_idx + 1) % num_clients;
 
                         let new_start_client =
                             game_clients.get(new_start_client_idx as usize).unwrap();
@@ -165,8 +170,9 @@ async fn main() {
                         transfer.update_pubkey(new_pubkey);
 
                         if process_finished {
-                            new_end_point =
-                                *inner_points.get(new_start_client_idx as usize).unwrap();
+                            new_end_point = *inner_circle_points
+                                .get(new_start_client_idx as usize)
+                                .unwrap();
                         }
 
                         transfer.end_x = new_end_point.x;
@@ -210,7 +216,7 @@ struct GameClient {
 }
 
 impl GameClient {
-    fn new(pos: Vec2, id: u8) -> Self {
+    fn new(pos: Vec2, id: u16) -> Self {
         let client = StaticKeyClient::new(id);
         let color = pubkey_color_representation(&client.pubkey);
 
@@ -223,7 +229,7 @@ fn pubkey_color_representation(key: &PublicKey) -> Color {
     let key_bytes = key.to_bytes();
     let color_bytes = key_bytes.take(3).into_inner();
 
-    //these unwraps are fine cause i took 3 bytes from the pubkey so there will be 3 u8s in the array
+    //these unwraps are fine cause i took 3 bytes from the pubkey so there will be 3 u16s in the array
     let r = *color_bytes.first().unwrap();
     let g = *color_bytes.get(1).unwrap();
     let b = *color_bytes.get(2).unwrap();
@@ -241,7 +247,7 @@ struct PubkeyTransferVisualization {
     ///the client id of the original sender used to determine when the negotiation is finished
     pub original_sender_id: u32,
     pub value: PublicKey,
-    pub remaining_hops: u8,
+    pub remaining_hops: u16,
     color: Color,
 }
 
