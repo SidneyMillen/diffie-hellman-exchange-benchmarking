@@ -26,7 +26,6 @@ async fn main() {
 
     loop {
         let mut new_num_clients = num_clients as f32;
-        let mut new_transfer_speed = key_transfer_speed;
 
         let circle_size = 250.0;
 
