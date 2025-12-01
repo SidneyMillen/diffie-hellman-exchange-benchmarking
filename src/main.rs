@@ -1,8 +1,5 @@
 mod clients;
 
-#[cfg(target_arch = "wasm32")]
-mod wasm_compat;
-
 
 use std::{f32::consts::PI, io::Read};
 use macroquad::{
@@ -70,7 +67,9 @@ async fn main() {
                 .titlebar(true)
                 .ui(&mut root_ui(), |ui| {
                     ui.label(None, "Press \"R\" to reset");
+                    ui.label(None, "Clients:");
                     ui.slider(hash!(), "[2 - 255]", 2f32..255f32, &mut new_num_clients);
+                    ui.label(None, "Transfers/sec:");
                     ui.slider(
                         hash!(),
                         "[0.1 - 10.0]",
