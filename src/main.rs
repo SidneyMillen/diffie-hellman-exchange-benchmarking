@@ -165,7 +165,7 @@ mod tests {
             let n = 10;
             let mut clients: Vec<StaticKeyClient> = vec![];
 
-            for i in 0..n {
+            for _ in 0..n {
                 clients.push(StaticKeyClient::new())
             }
 
