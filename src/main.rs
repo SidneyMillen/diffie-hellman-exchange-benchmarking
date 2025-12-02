@@ -162,24 +162,39 @@ mod tests {
     #[bench]
     fn n_party_mutual_secret_static_key_benchmark(b: &mut Bencher) {
         b.iter(|| {
-            let n = 10;
+            //customize this variable to benchmark different values of n
+            let num_clients = 10;
+            /*
+            StaticKeyClient is a custom data structure which stores a secret privately.
+            StaticKeyClient can provide a public key or calculate a shared secret from a pubkey
+             */
             let mut clients: Vec<StaticKeyClient> = vec![];
-
-            for _ in 0..n {
+            //make N clients
+            for _ in 0..num_clients {
                 clients.push(StaticKeyClient::new())
             }
 
-            for i in 0..n {
+            for i in 0..num_clients {
                 let client = clients.get(i).unwrap();
 
+                /*
+                mutual secret negotiation involves performing multiple shared secret calculations.
+                To achieve this, we must treat the intermediate shared secrets as public keys to allow
+                clients to calculate the next shared secret.
+                 */
                 let mut current_secret: PublicKey = client.pubkey;
-                for j in 1..n {
+
+                for j in 1..num_clients {
                     let mut next_client_idx = i + j;
-                    if next_client_idx > n - 1 {
-                        next_client_idx -= n;
+
+                    //this code will get the next client, looping around back to the start if it reaches the end
+                    if next_client_idx > num_clients - 1 {
+                        next_client_idx -= num_clients;
                     }
                     let next_client = clients.get(next_client_idx).unwrap();
+
                     let secret = next_client.calculate_shared_secret(&current_secret);
+                    //this code is required to be able to calculate the next shared secret
                     current_secret = PublicKey::from(secret.to_bytes());
                 }
             }
